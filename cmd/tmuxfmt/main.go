@@ -14,7 +14,7 @@ func main() {
 
 	snap, err := store.Read()
 	if err != nil {
-		fmt.Print("CL:-- CD:--")
+		fmt.Print("CLAUDE:-- CODEX:--")
 		return
 	}
 
@@ -23,7 +23,7 @@ func main() {
 	cdFiveH := remaining(snap.Codex.FiveHour.UsedPercent)
 	cdWeekly := remaining(snap.Codex.Weekly.UsedPercent)
 
-	fmt.Printf("CL:%d/%d CD:%d/%d", clFiveH, clWeekly, cdFiveH, cdWeekly)
+	fmt.Printf("CLAUDE:%d/%d CODEX:%d/%d", clFiveH, clWeekly, cdFiveH, cdWeekly)
 }
 
 func remaining(usedPct float64) int {
