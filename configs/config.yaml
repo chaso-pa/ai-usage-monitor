@@ -1,0 +1,9 @@
+poll_interval: 5m
+discord_webhook: ""
+cache_path: ~/.cache/ai-usage.json
+
+providers:
+  claude:
+    token_env: CLAUDE_CODE_OAUTH_TOKEN
+  codex:
+    token_env: OPENAI_SESSION_TOKEN
