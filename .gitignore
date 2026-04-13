@@ -1,0 +1,8 @@
+bin
+
+configs/*
+!configs/config.yaml.example
+
+*.log
+
+.omc
