@@ -6,3 +6,5 @@ configs/*
 *.log
 
 .omc
+
+.cache
