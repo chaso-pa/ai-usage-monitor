@@ -136,6 +136,39 @@ func TestDetect_LowAlreadyLow_NoRepeat(t *testing.T) {
 	}
 }
 
+func TestDetect_NoResetWhenPrevUsedPercentIsZero(t *testing.T) {
+	// prev.UsedPercent == 0 → daemon just started, no real usage data yet.
+	// A drop from 0 to anything must not fire a reset even if reset_at is non-zero.
+	prev := usage.ProviderUsage{
+		FiveHour: window(0, t0),
+		Weekly:   window(0, t0),
+	}
+	curr := usage.ProviderUsage{
+		FiveHour: window(5, t0),
+		Weekly:   window(3, t0),
+	}
+	events := detector.Detect("claude", prev, curr)
+	if len(events) != 0 {
+		t.Fatalf("expected no events when prev used_percent is 0, got %d: %v", len(events), events)
+	}
+}
+
+func TestDetect_NoResetWhenPrevUsedPercentIsZeroWithTimestampAdvance(t *testing.T) {
+	// Even if reset_at advances, prev.UsedPercent == 0 must suppress the reset event.
+	prev := usage.ProviderUsage{
+		FiveHour: window(0, t0),
+		Weekly:   window(0, t0),
+	}
+	curr := usage.ProviderUsage{
+		FiveHour: window(10, t1), // timestamp advanced — but prev was 0
+		Weekly:   window(5, t1),
+	}
+	events := detector.Detect("claude", prev, curr)
+	if len(events) != 0 {
+		t.Fatalf("expected no events when prev used_percent is 0 (timestamp advance), got %d: %v", len(events), events)
+	}
+}
+
 func TestDetect_NoBelowThreshold(t *testing.T) {
 	prev := usage.ProviderUsage{
 		FiveHour: window(50, t0),
