@@ -11,8 +11,6 @@ import (
 	"github.com/chaso/ai-usage-monitor/internal/detector"
 )
 
-var jst = time.FixedZone("JST", 9*60*60)
-
 // Notifier sends Discord webhook messages.
 type Notifier struct {
 	webhookURL string
@@ -30,7 +28,7 @@ type discordPayload struct {
 	Content string `json:"content"`
 }
 
-// Send dispatches a Discord message for the given reset event.
+// Send dispatches a Discord message for the given event.
 // It is a no-op when the webhook URL is empty.
 func (n *Notifier) Send(ctx context.Context, event detector.ResetEvent) error {
 	if n.webhookURL == "" {
@@ -63,19 +61,20 @@ func (n *Notifier) Send(ctx context.Context, event detector.ResetEvent) error {
 }
 
 func buildMessage(event detector.ResetEvent) string {
-	windowLabel := "5h"
-	if event.EventType == detector.WeeklyReset {
-		windowLabel = "weekly"
-	}
-
 	provider := titleCase(event.Provider)
-	remaining := 100.0 - event.Curr.UsedPercent
-	nextReset := event.Curr.ResetAt.In(jst).Format("2006-01-02 15:04 JST")
 
-	return fmt.Sprintf(
-		"♻️ %s %s window reset\nRemaining capacity: %.0f%%\nNext reset: %s",
-		provider, windowLabel, remaining, nextReset,
-	)
+	switch event.EventType {
+	case detector.FiveHourReset:
+		return fmt.Sprintf("♻️ %s 5h window reset — go go go", provider)
+	case detector.WeeklyReset:
+		return fmt.Sprintf("♻️ %s weekly window reset — go go go", provider)
+	case detector.FiveHourLow:
+		return fmt.Sprintf("☕️ %s 5h window below 5%% — take a coffee break", provider)
+	case detector.WeeklyLow:
+		return fmt.Sprintf("✈️ %s weekly window below 5%% — time for a trip", provider)
+	default:
+		return fmt.Sprintf("%s: %s", provider, event.EventType)
+	}
 }
 
 func titleCase(s string) string {

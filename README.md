@@ -31,7 +31,7 @@ ai-usage-monitor/
     cache/              # atomic JSON cache (read/write)
     config/             # YAML config loader
   configs/
-    config.yaml         # default configuration
+    config.yaml.example # configuration template
   scripts/
     install_tmux.sh     # appends status-right to ~/.tmux.conf
   Makefile
@@ -68,7 +68,13 @@ make install        # copies binaries to ~/ops/ai-usage-monitor/bin/
 
 ### 3. Configure
 
-Edit `configs/config.yaml`:
+`configs/config.yaml.example` をコピーして編集します:
+
+```bash
+cp configs/config.yaml.example configs/config.yaml
+```
+
+`discord_webhook` に通知先のWebhook URLを設定してください:
 
 ```yaml
 poll_interval: 5m
@@ -81,6 +87,8 @@ providers:
   codex:
     token_env: OPENAI_SESSION_TOKEN
 ```
+
+> `configs/config.yaml` は `.gitignore` に追加しておくことを推奨します。
 
 ### 4. Set environment variables
 

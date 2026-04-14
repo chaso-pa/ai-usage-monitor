@@ -84,6 +84,58 @@ func TestDetect_BothWindows(t *testing.T) {
 	}
 }
 
+func TestDetect_FiveHourLow(t *testing.T) {
+	prev := usage.ProviderUsage{
+		FiveHour: window(90, t0), // 10% remaining — not yet low
+		Weekly:   window(50, t0),
+	}
+	curr := usage.ProviderUsage{
+		FiveHour: window(96, t0), // 4% remaining — crossed into low
+		Weekly:   window(52, t0),
+	}
+	events := detector.Detect("claude", prev, curr)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 low event, got %d: %v", len(events), events)
+	}
+	if events[0].EventType != detector.FiveHourLow {
+		t.Errorf("expected five_hour_low, got %s", events[0].EventType)
+	}
+}
+
+func TestDetect_WeeklyLow(t *testing.T) {
+	prev := usage.ProviderUsage{
+		FiveHour: window(50, t0),
+		Weekly:   window(94, t0), // 6% remaining — not yet low
+	}
+	curr := usage.ProviderUsage{
+		FiveHour: window(51, t0),
+		Weekly:   window(97, t0), // 3% remaining — crossed into low
+	}
+	events := detector.Detect("codex", prev, curr)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 low event, got %d: %v", len(events), events)
+	}
+	if events[0].EventType != detector.WeeklyLow {
+		t.Errorf("expected weekly_low, got %s", events[0].EventType)
+	}
+}
+
+func TestDetect_LowAlreadyLow_NoRepeat(t *testing.T) {
+	// Already above threshold in prev — should not re-fire.
+	prev := usage.ProviderUsage{
+		FiveHour: window(97, t0),
+		Weekly:   window(98, t0),
+	}
+	curr := usage.ProviderUsage{
+		FiveHour: window(99, t0),
+		Weekly:   window(99, t0),
+	}
+	events := detector.Detect("claude", prev, curr)
+	if len(events) != 0 {
+		t.Fatalf("expected no events when already low, got %d: %v", len(events), events)
+	}
+}
+
 func TestDetect_NoBelowThreshold(t *testing.T) {
 	prev := usage.ProviderUsage{
 		FiveHour: window(50, t0),
