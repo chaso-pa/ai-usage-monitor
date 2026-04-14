@@ -6,15 +6,48 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/chaso/ai-usage-monitor/internal/usage"
 )
 
 const (
-	defaultEndpoint = "https://api.claude.ai/api/usage"
-	envTokenKey     = "CLAUDE_CODE_OAUTH_TOKEN"
+	defaultEndpoint    = "https://api.anthropic.com/api/oauth/usage"
+	envTokenKey        = "CLAUDE_CODE_OAUTH_TOKEN"
+	credentialsRelPath = ".claude/.credentials.json"
 )
+
+// credentials mirrors the structure of ~/.claude/.credentials.json.
+type credentials struct {
+	ClaudeAiOauth struct {
+		AccessToken string `json:"accessToken"`
+	} `json:"claudeAiOauth"`
+}
+
+// loadToken returns the access token, preferring the env var then the
+// credentials file at ~/.claude/.credentials.json.
+func loadToken(envKey string) string {
+	if t := os.Getenv(envKey); t != "" {
+		return t
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, credentialsRelPath))
+	if err != nil {
+		return ""
+	}
+
+	var creds credentials
+	if err := json.Unmarshal(data, &creds); err != nil {
+		return ""
+	}
+	return creds.ClaudeAiOauth.AccessToken
+}
 
 // HTTPClient is a narrow interface for dependency injection in tests.
 type HTTPClient interface {
@@ -61,17 +94,17 @@ func (p *Provider) Name() string { return "claude" }
 // Adjust field names when the real API is available.
 type apiResponse struct {
 	FiveHour struct {
-		UsedPercent float64 `json:"used_percent"`
-		ResetAt     string  `json:"reset_at"`
+		Utilization float64 `json:"utilization"`
+		ResetsAt    string  `json:"resets_at"`
 	} `json:"five_hour"`
 	Weekly struct {
-		UsedPercent float64 `json:"used_percent"`
-		ResetAt     string  `json:"reset_at"`
-	} `json:"weekly"`
+		Utilization float64 `json:"utilization"`
+		ResetsAt    string  `json:"resets_at"`
+	} `json:"seven_day"`
 }
 
 func (p *Provider) Fetch(ctx context.Context) (usage.ProviderUsage, error) {
-	token := os.Getenv(p.tokenEnv)
+	token := loadToken(p.tokenEnv)
 	if token == "" {
 		return p.mockUsage(), nil
 	}
@@ -82,13 +115,18 @@ func (p *Provider) Fetch(ctx context.Context) (usage.ProviderUsage, error) {
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("anthropic-beta", "oauth-2025-04-20")
 
 	resp, err := p.client.Do(req)
 	if err != nil {
 		// Network error — return mock so the daemon stays alive.
 		return p.mockUsage(), nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return p.mockUsage(), nil
@@ -99,16 +137,16 @@ func (p *Provider) Fetch(ctx context.Context) (usage.ProviderUsage, error) {
 		return usage.ProviderUsage{}, fmt.Errorf("claude: decode response: %w", err)
 	}
 
-	fiveHourReset, _ := time.Parse(time.RFC3339, ar.FiveHour.ResetAt)
-	weeklyReset, _ := time.Parse(time.RFC3339, ar.Weekly.ResetAt)
+	fiveHourReset, _ := time.Parse(time.RFC3339, ar.FiveHour.ResetsAt)
+	weeklyReset, _ := time.Parse(time.RFC3339, ar.Weekly.ResetsAt)
 
 	return usage.ProviderUsage{
 		FiveHour: usage.WindowUsage{
-			UsedPercent: ar.FiveHour.UsedPercent,
+			UsedPercent: ar.FiveHour.Utilization,
 			ResetAt:     fiveHourReset,
 		},
 		Weekly: usage.WindowUsage{
-			UsedPercent: ar.Weekly.UsedPercent,
+			UsedPercent: ar.Weekly.Utilization,
 			ResetAt:     weeklyReset,
 		},
 	}, nil
