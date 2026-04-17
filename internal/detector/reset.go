@@ -80,7 +80,7 @@ func isReset(prev, curr usage.WindowUsage) bool {
 	if prev.UsedPercent < 20 {
 		return false
 	}
-	if prev.UsedPercent-curr.UsedPercent >= resetDropThreshold {
+	if prev.UsedPercent > resetDropThreshold && curr.UsedPercent < resetDropThreshold {
 		return true
 	}
 	if !curr.ResetAt.IsZero() && curr.ResetAt.After(prev.ResetAt) {
